@@ -1,5 +1,40 @@
-(docs/TDR_BETES_FRAIS_v1.1.md) is a documentation file in markdown format, which is a source/config file, so according to rule 6, the output should be empty.
+```
+# Dependencies
+node_modules/
 
-```markdown
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+out/
 
+# Environment variables
+.env
+.env.local
+.env.*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Prisma
+prisma/migrations/
 ```
