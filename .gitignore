@@ -2,13 +2,6 @@
 # Dependencies
 node_modules/
 
-# Build outputs
-dist/
-build/
-.next/
-.nuxt/
-out/
-
 # Environment variables
 .env
 .env.local
@@ -17,59 +10,41 @@ out/
 # IDE files
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # Logs
 *.log
 
-# Temporary files
-*.tmp
+# Build artifacts
+dist/
+build/
+target/
 
-# Python
+# Python cache (if any Python files present)
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.db
-*.sqlite
-*.sqlite3
-.DS_Store
-Thumbs.db
-
-# TypeScript/JavaScript
-*.tsbuildinfo
-*.js.map
-*.jsx.map
-*.ts.map
-*.tsx.map
 
 # Prisma
 prisma/migrations/
-prisma/schema.prisma.bak
 
-# Backend specific
-backend/dist/
-backend/build/
-backend/node_modules/
+# Temporary files
+*.tmp
+*.swp
+*.swo
 
-# Frontend specific
-frontend/.next/
-frontend/out/
-frontend/node_modules/
-frontend/dist/
-frontend/build/
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Testing
+.nyc_output/
+.mypy_cache/
+.pytest_cache/
+.jest/
 ```
