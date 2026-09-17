@@ -178,6 +178,36 @@ model Product {
   @@map("products")
 }
 
+model Restaurant {
+  id              String   @id @default(uuid())
+  ownerId         String
+  name            String
+  slug            String   @unique
+  description     String?
+  address         String
+  city            String?
+  department      String?
+  phone           String?
+  email           String?
+  cuisineType     String?
+  priceRange      String?
+  deliveryRadius  Float?
+  minimumOrder    Float?
+  preparationTime Int?
+  isActive        Boolean  @default(true)
+  rating          Float?   @default(0)
+  totalReviews    Int      @default(0)
+  imageUrl        String?
+  openingHours    Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  products Product[]
+  reviews  Review[]
+
+  @@map("restaurants")
+}
+
 enum UnitType {
   KG
   PIECE

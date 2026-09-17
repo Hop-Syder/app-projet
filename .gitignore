@@ -2,51 +2,56 @@
 # Dependencies
 node_modules/
 
-# Build outputs
-dist/
-build/
-target/
-
-# Logs
+# Logs and temp files
 *.log
+*.tmp
 
 # Environment variables
 .env
 .env.local
-*.env.*
+.env.*
 
-# IDE specific
+# Editors
 .vscode/
 .idea/
 
-# Python cache (if applicable)
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Temporary files
-*.tmp
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/modules/
+.DS_Store
 *.swp
 *.swo
+*~
 
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# TypeScript/NestJS specific
-*.tsbuildinfo
+# Node.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+dist/
+build/
 .nyc_output/
-
-# Prisma
-prisma/migrations/
-prisma/schema.prisma.bak
-
-# Test coverage
 coverage/
+*.lcov
+.nodemon
+.pnp
+.pnp.js
+.prismagenerateschema
 ```
