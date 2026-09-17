@@ -2,6 +2,11 @@
 # Dependencies
 node_modules/
 
+# Build artifacts
+dist/
+build/
+target/
+
 # Environment variables
 .env
 .env.local
@@ -15,14 +20,7 @@ node_modules/
 .idea/
 *.swp
 *.swo
-
-# Temp files
 *.tmp
-
-# Build outputs
-dist/
-build/
-target/
 
 # Python
 __pycache__/
@@ -35,22 +33,43 @@ venv/
 .venv/
 .ENV
 .python-version
-
-# Database
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
 *.db
-*.sqlite
-*.sqlite3
+*.db-journal
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+cython_debug/
+
+# Node.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+dist/
+dist-*
+bower_components/
+.jspm/
+.npm
+.npx
+.nyc_output
+coverage
+*.lcov
+.nyc_output/
+.nyc/
+.coveralls.yml
+.tap/
 
 # Prisma
 prisma/migrations/
-prisma/seed.ts
-
-# TypeScript/JavaScript
-*.tsbuildinfo
-*.js.map
-*.ts.map
-
-# Coverage
-coverage/
-.nyc_output/
 ```
