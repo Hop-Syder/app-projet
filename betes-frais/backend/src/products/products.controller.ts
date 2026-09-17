@@ -115,9 +115,9 @@ export class ProductsController {
 
   @Get(':id/availability')
   @Public()
-  @ApiOperation({ summary: 'Vérifier la disponibilité d'un produit' })
+  @ApiOperation({ summary: 'Verifier la disponibilite d un produit' })
   @ApiQuery({ name: 'quantity', required: true, type: Number })
-  @ApiResponse({ status: 200, description: 'Disponibilité vérifiée' })
+  @ApiResponse({ status: 200, description: 'Disponibilite verifiee' })
   async checkAvailability(
     @Param('id', ParseUUIDPipe) id: string,
     @Query('quantity') quantity: number,

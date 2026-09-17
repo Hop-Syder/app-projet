@@ -20,7 +20,7 @@ export class CategoriesService {
         name: dto.name,
         slug: dto.slug,
         description: dto.description,
-        parentId: dto.parentCategoryId,
+        parentId: dto.parentId,
         imageUrl: dto.imageUrl,
         icon: dto.icon,
         sortOrder: dto.sortOrder ?? 0,
@@ -56,7 +56,7 @@ export class CategoriesService {
     }
 
     if (parentId) {
-      where.parentCategoryId = parentId;
+      where.parentId = parentId;
     } else if (parentId === 'root') {
       where.parentCategory = { is: null };
     }
@@ -203,7 +203,7 @@ export class CategoriesService {
         name: dto.name,
         slug: dto.slug,
         description: dto.description,
-        parentCategoryId: dto.parentCategoryId,
+        parentId: dto.parentId,
         imageUrl: dto.imageUrl,
         icon: dto.icon,
         sortOrder: dto.sortOrder,
@@ -247,7 +247,7 @@ export class CategoriesService {
 
   async getTree() {
     const rootCategories = await this.prisma.category.findMany({
-      where: { parentCategory: { is: null } },
+      where: { parentId: { is: null } },
       orderBy: { sortOrder: 'asc' },
       include: {
         children: {

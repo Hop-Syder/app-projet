@@ -13,7 +13,7 @@ export class CreateCategoryDto {
 
   @IsString()
   @IsOptional()
-  parentCategoryId?: string;
+  parentId?: string;
 
   @IsString()
   @IsOptional()
@@ -51,7 +51,7 @@ export class UpdateCategoryDto {
 
   @IsString()
   @IsOptional()
-  parentCategoryId?: string;
+  parentId?: string;
 
   @IsString()
   @IsOptional()
