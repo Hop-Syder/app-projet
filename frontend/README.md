@@ -1,32 +1,75 @@
-# React + TypeScript + Vite
+# Frontend - FoodDelivery App
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Application React + Vite pour la plateforme de livraison de nourriture.
 
-Currently, two official plugins are available:
+## Installation
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Démarrage
+
+```bash
+npm run dev
+```
+
+L'application sera disponible sur http://localhost:5173
+
+## Structure du projet
+
+```
+src/
+├── components/     # Composants réutilisables (Navbar, etc.)
+├── pages/          # Pages de l'application
+│   ├── HomePage.tsx
+│   ├── LoginPage.tsx
+│   ├── RegisterPage.tsx
+│   ├── RestaurantsPage.tsx
+│   └── ProductsPage.tsx
+├── services/       # Services API
+│   ├── api.ts
+│   ├── auth.service.ts
+│   ├── restaurant.service.ts
+│   ├── product.service.ts
+│   └── order.service.ts
+├── hooks/          # Hooks React personnalisés
+│   ├── useAuth.ts
+│   ├── useRestaurant.ts
+│   └── useProduct.ts
+├── types/          # Types TypeScript
+│   └── index.ts
+└── utils/          # Utilitaires
+```
+
+## Fonctionnalités
+
+- ✅ Authentification (login/register)
+- ✅ Navigation avec React Router
+- ✅ Gestion d'état avec TanStack Query
+- ✅ Pages: Accueil, Restaurants, Produits, Login, Register
+- ✅ Services API configurés avec Axios
+- ✅ Types TypeScript basés sur le schéma Prisma
+
+## Variables d'environnement
+
+Créez un fichier `.env` à la racine:
+
+```
+VITE_API_URL=http://localhost:3000/api
+```
+
+## Build
+
+```bash
+npm run build
+```
+
+## Technologies
+
+- React 19
+- Vite 8
+- TypeScript
+- React Router DOM
+- TanStack Query
+- Axios
