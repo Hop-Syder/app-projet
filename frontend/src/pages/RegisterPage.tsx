@@ -1,162 +1,72 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useRegister } from '../hooks/useAuth';
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Button, Card, ErrorState, Input, Label } from '../components/ui';
 
-export const RegisterPage: React.FC = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    firstName: '',
-    lastName: '',
-    phone: '',
-    role: 'CUSTOMER' as 'CUSTOMER' | 'RESTAURANT_OWNER' | 'DELIVERY_DRIVER',
-  });
-  const registerMutation = useRegister();
+export function RegisterPage() {
+  const { register, loading, error } = useAuth();
   const navigate = useNavigate();
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '' });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     try {
-      await registerMutation.mutateAsync(formData);
+      await register(form);
       navigate('/');
-    } catch (error) {
-      console.error('Registration failed:', error);
-      alert("Échec de l'inscription. Veuillez réessayer.");
+    } catch {
+      // error already surfaced via context
     }
-  };
+  }
 
   return (
-    <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <h1 style={styles.title}>Inscription</h1>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Email</label>
-          <input
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            style={styles.input}
-            required
-          />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Mot de passe</label>
-          <input
-            type="password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            style={styles.input}
-            required
-          />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Prénom</label>
-          <input
-            type="text"
-            value={formData.firstName}
-            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-            style={styles.input}
-          />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Nom</label>
-          <input
-            type="text"
-            value={formData.lastName}
-            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-            style={styles.input}
-          />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Téléphone</label>
-          <input
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            style={styles.input}
-          />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Rôle</label>
-          <select
-            value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-            style={styles.input}
-          >
-            <option value="CUSTOMER">Client</option>
-            <option value="RESTAURANT_OWNER">Propriétaire de restaurant</option>
-            <option value="DELIVERY_DRIVER">Livreur</option>
-          </select>
-        </div>
-        <button type="submit" style={styles.button} disabled={registerMutation.isPending}>
-          {registerMutation.isPending ? 'Inscription...' : "S'inscrire"}
-        </button>
-        <p style={styles.text}>
-          Déjà un compte ? <Link to="/login" style={styles.link}>Se connecter</Link>
-        </p>
-      </form>
+    <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
+      <h1 className="text-2xl font-bold text-text">Créer un compte</h1>
+      <p className="mt-1 text-sm text-muted">Rejoignez Bêtes &amp; Frais pour commander en quelques clics.</p>
+
+      <Card className="mt-6 p-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {error && <ErrorState message={error} />}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="firstName">Prénom</Label>
+              <Input id="firstName" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="lastName">Nom</Label>
+              <Input id="lastName" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="email">Adresse e-mail</Label>
+            <Input id="email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="phone">Téléphone</Label>
+            <Input id="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+229 ..." />
+          </div>
+          <div>
+            <Label htmlFor="password">Mot de passe</Label>
+            <Input
+              id="password"
+              type="password"
+              required
+              minLength={6}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
+          <Button type="submit" disabled={loading} className="mt-2 w-full">
+            {loading ? 'Création…' : 'Créer mon compte'}
+          </Button>
+        </form>
+      </Card>
+
+      <p className="mt-6 text-center text-sm text-muted">
+        Déjà inscrit ?{' '}
+        <Link to="/connexion" className="font-semibold text-primary">
+          Se connecter
+        </Link>
+      </p>
     </div>
   );
-};
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '80vh',
-    padding: '2rem',
-  },
-  form: {
-    backgroundColor: 'white',
-    padding: '2rem',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    width: '100%',
-    maxWidth: '400px',
-  },
-  title: {
-    textAlign: 'center',
-    color: '#333',
-    marginBottom: '1.5rem',
-  },
-  inputGroup: {
-    marginBottom: '1rem',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '0.5rem',
-    color: '#555',
-    fontWeight: '500',
-  },
-  input: {
-    width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '1rem',
-    boxSizing: 'border-box',
-  },
-  button: {
-    width: '100%',
-    padding: '0.75rem',
-    backgroundColor: '#ff6b35',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '1rem',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    marginTop: '1rem',
-  },
-  text: {
-    textAlign: 'center',
-    marginTop: '1rem',
-    color: '#666',
-  },
-  link: {
-    color: '#ff6b35',
-    textDecoration: 'none',
-    fontWeight: 'bold',
-  },
-};
+}

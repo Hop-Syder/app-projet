@@ -1,12 +1,32 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
+
+const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'PREPARATEUR', 'LIVREUR'];
+const SAFE_USER_SELECT = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  role: true,
+} as const;
 
 @Injectable()
 export class OrdersService {
   constructor(private prisma: PrismaService) {}
 
-  async createOrder(customerId: string, data: {
+  private async getCustomerProfileIdForUser(userId: string): Promise<string> {
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId },
+    });
+    if (!profile) {
+      throw new NotFoundException('Customer profile not found for this user');
+    }
+    return profile.id;
+  }
+
+  async createOrder(userId: string, data: {
     addressId?: string;
     deliveryZoneId?: string;
     deliveryFee?: number;
@@ -25,14 +45,7 @@ export class OrdersService {
     paymentMethod?: string;
     notes?: string;
   }) {
-    const customer = await this.prisma.customerProfile.findUnique({
-      where: { id: customerId },
-      include: { cart: true },
-    });
-
-    if (!customer) {
-      throw new NotFoundException('Customer profile not found');
-    }
+    const customerId = await this.getCustomerProfileIdForUser(userId);
 
     // Calculate order totals
     let subtotal = 0;
@@ -122,7 +135,7 @@ export class OrdersService {
         items: true,
         customer: {
           include: {
-            user: true,
+            user: { select: SAFE_USER_SELECT },
           },
         },
         address: true,
@@ -175,7 +188,7 @@ export class OrdersService {
         items: true,
         customer: {
           include: {
-            user: true,
+            user: { select: SAFE_USER_SELECT },
           },
         },
         address: true,
@@ -199,7 +212,7 @@ export class OrdersService {
         items: true,
         customer: {
           include: {
-            user: true,
+            user: { select: SAFE_USER_SELECT },
           },
         },
         delivery: true,
@@ -211,6 +224,26 @@ export class OrdersService {
       throw new NotFoundException(`Order with number ${orderNumber} not found`);
     }
 
+    return order;
+  }
+
+  private assertCanViewOrder(order: { customer: { userId: string } }, requester: { id: string; role: string }) {
+    const isOwner = order.customer.userId === requester.id;
+    const isStaff = STAFF_ROLES.includes(requester.role);
+    if (!isOwner && !isStaff) {
+      throw new ForbiddenException('You do not have access to this order');
+    }
+  }
+
+  async findOneForUser(id: string, requester: { id: string; role: string }) {
+    const order = await this.findOne(id);
+    this.assertCanViewOrder(order, requester);
+    return order;
+  }
+
+  async findByOrderNumberForUser(orderNumber: string, requester: { id: string; role: string }) {
+    const order = await this.findByOrderNumber(orderNumber);
+    this.assertCanViewOrder(order, requester);
     return order;
   }
 
@@ -256,7 +289,8 @@ export class OrdersService {
     });
   }
 
-  async getCustomerOrders(customerId: string) {
+  async getCustomerOrders(userId: string) {
+    const customerId = await this.getCustomerProfileIdForUser(userId);
     return this.prisma.order.findMany({
       where: { customerId },
       include: {
@@ -279,8 +313,9 @@ export class OrdersService {
     });
   }
 
-  async cancelOrder(id: string, reason: string, userId: string) {
+  async cancelOrder(id: string, reason: string, requester: { id: string; role: string }) {
     const order = await this.findOne(id);
+    this.assertCanViewOrder(order, requester);
 
     if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED) {
       throw new BadRequestException('Cannot cancel this order');
@@ -292,7 +327,7 @@ export class OrdersService {
         status: OrderStatus.CANCELLED,
         cancellationReason: reason,
         cancelledAt: new Date(),
-        cancelledBy: userId,
+        cancelledBy: requester.id,
       },
       include: {
         items: true,

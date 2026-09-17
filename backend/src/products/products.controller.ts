@@ -21,8 +21,8 @@ export class ProductsController {
       categoryId,
       animalId,
       search,
-      isAvailable: isAvailable === 'true',
-      isFeatured: isFeatured === 'true',
+      isAvailable: isAvailable === undefined ? undefined : isAvailable === 'true',
+      isFeatured: isFeatured === undefined ? undefined : isFeatured === 'true',
     });
   }
 

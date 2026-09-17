@@ -1,152 +1,40 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useRestaurants } from '../hooks/useRestaurant';
+import { useEffect, useState } from 'react';
+import { restaurantsService } from '../services/restaurants.service';
+import { EmptyState, PageLoader } from '../components/ui';
+import type { Restaurant } from '../types';
 
+export function RestaurantsPage() {
+  const [restaurants, setRestaurants] = useState<Restaurant[] | null>(null);
 
-export const RestaurantsPage: React.FC = () => {
-  const { data: restaurants, isLoading, error } = useRestaurants();
-
-  if (isLoading) return <div style={styles.loading}>Chargement...</div>;
-  if (error) return <div style={styles.error}>Erreur lors du chargement des restaurants</div>;
+  useEffect(() => {
+    restaurantsService.findAll({ isActive: true }).then(setRestaurants).catch(() => setRestaurants([]));
+  }, []);
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Nos Restaurants</h1>
-      {restaurants && restaurants.length === 0 ? (
-        <p style={styles.empty}>Aucun restaurant disponible pour le moment.</p>
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <h1 className="text-2xl font-bold text-text">Restaurants partenaires</h1>
+      <p className="mt-1 text-sm text-muted">Commandez sur place, à emporter ou en livraison.</p>
+
+      {restaurants === null ? (
+        <PageLoader />
+      ) : restaurants.length === 0 ? (
+        <div className="mt-6">
+          <EmptyState title="Aucun restaurant partenaire pour le moment" />
+        </div>
       ) : (
-        <div style={styles.grid}>
-          {restaurants?.map((restaurant) => (
-            <Link to={`/restaurants/${restaurant.id}`} key={restaurant.id} style={styles.cardLink}>
-              <div style={styles.card}>
-                {restaurant.imageUrl ? (
-                  <img src={restaurant.imageUrl} alt={restaurant.name} style={styles.image} />
-                ) : (
-                  <div style={styles.placeholder}>🍽️</div>
-                )}
-                <div style={styles.cardContent}>
-                  <h3 style={styles.name}>{restaurant.name}</h3>
-                  {restaurant.cuisineType && (
-                    <p style={styles.cuisine}>{restaurant.cuisineType}</p>
-                  )}
-                  <div style={styles.info}>
-                    <span style={styles.rating}>
-                      ⭐ {restaurant.rating?.toFixed(1) || 'N/A'} ({restaurant.totalReviews} avis)
-                    </span>
-                    <span style={styles.price}>{restaurant.priceRange || '$$'}</span>
-                  </div>
-                  <p style={styles.address}>📍 {restaurant.address}</p>
-                  {!restaurant.isActive && (
-                    <span style={styles.closed}>Fermé</span>
-                  )}
-                </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          {restaurants.map((r) => (
+            <div key={r.id} className="overflow-hidden rounded-2xl border border-border bg-surface">
+              <div className="flex h-32 items-center justify-center bg-primary-soft text-4xl">🍽️</div>
+              <div className="p-4">
+                <p className="font-semibold text-text">{r.name}</p>
+                <p className="text-sm text-muted">{r.address}</p>
+                {r.cuisineType && <p className="mt-1 text-xs text-muted">{r.cuisineType}</p>}
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
     </div>
   );
-};
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '2rem 1rem',
-  },
-  title: {
-    fontSize: '2rem',
-    color: '#333',
-    marginBottom: '2rem',
-    textAlign: 'center',
-  },
-  loading: {
-    textAlign: 'center',
-    padding: '4rem',
-    fontSize: '1.2rem',
-    color: '#666',
-  },
-  error: {
-    textAlign: 'center',
-    padding: '4rem',
-    fontSize: '1.2rem',
-    color: '#ff6b35',
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '4rem',
-    fontSize: '1.2rem',
-    color: '#666',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '2rem',
-  },
-  cardLink: {
-    textDecoration: 'none',
-    color: 'inherit',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    transition: 'transform 0.2s, box-shadow 0.2s',
-  },
-  image: {
-    width: '100%',
-    height: '200px',
-    objectFit: 'cover',
-  },
-  placeholder: {
-    width: '100%',
-    height: '200px',
-    backgroundColor: '#f5f5f5',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '4rem',
-  },
-  cardContent: {
-    padding: '1rem',
-  },
-  name: {
-    fontSize: '1.25rem',
-    color: '#333',
-    marginBottom: '0.5rem',
-  },
-  cuisine: {
-    color: '#666',
-    fontSize: '0.9rem',
-    marginBottom: '0.5rem',
-  },
-  info: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '0.5rem',
-  },
-  rating: {
-    color: '#ffb400',
-    fontWeight: 'bold',
-  },
-  price: {
-    color: '#666',
-    fontSize: '0.9rem',
-  },
-  address: {
-    color: '#666',
-    fontSize: '0.9rem',
-    marginBottom: '0.5rem',
-  },
-  closed: {
-    backgroundColor: '#ff4444',
-    color: 'white',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.8rem',
-    display: 'inline-block',
-  },
-};
+}

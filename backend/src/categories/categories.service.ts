@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -80,13 +81,20 @@ export class CategoriesService {
     imageUrl?: string;
     position?: number;
   }) {
-    return this.prisma.category.create({
-      data,
-      include: {
-        parent: true,
-        children: true,
-      },
-    });
+    try {
+      return await this.prisma.category.create({
+        data,
+        include: {
+          parent: true,
+          children: true,
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('A category with this slug already exists');
+      }
+      throw err;
+    }
   }
 
   async update(id: string, data: any) {
