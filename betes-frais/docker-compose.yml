@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: betes_frais_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: betefrais_user
+      POSTGRES_PASSWORD: BetesFraisPass2026!
+      POSTGRES_DB: betes_frais_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - betes_frais_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U betefrais_user -d betes_frais_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: betes_frais_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://betefrais_user:BetesFraisPass2026!@postgres:5432/betes_frais_db?schema=public
+      JWT_SECRET: votre_super_secret_jwt_key_changez_moi_en_prod_2026
+      JWT_EXPIRATION: 7d
+      PORT: 3001
+      NODE_ENV: development
+      UPLOAD_PATH: /app/uploads
+      MAX_FILE_SIZE: 5242880
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - betes_frais_net
+    command: sh -c "npx prisma migrate deploy && npm run start:dev"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: betes_frais_web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+      NEXT_PUBLIC_APP_NAME: "Bêtes & Frais"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - betes_frais_net
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  backend_uploads:
+
+networks:
+  betes_frais_net:
+    driver: bridge
