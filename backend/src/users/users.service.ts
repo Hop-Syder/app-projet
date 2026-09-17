@@ -8,7 +8,15 @@ export class UsersService {
 
   async findAll() {
     return this.prisma.user.findMany({
-      include: {
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
         customerProfile: {
           include: {
             addresses: true,

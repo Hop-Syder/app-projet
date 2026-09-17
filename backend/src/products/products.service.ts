@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UnitType } from '@prisma/client';
 
@@ -126,28 +127,81 @@ export class ProductsService {
     nutritionInfo?: any;
     isFeatured?: boolean;
     position?: number;
+    cutOptions?: { name: string; priceModifier?: number }[];
+    packagingOptions?: { name: string; priceModifier?: number }[];
   }) {
-    return this.prisma.product.create({
-      data: {
-        ...data,
-        unitType: data.unitType as UnitType,
-      },
-      include: {
-        category: true,
-        animal: true,
-      },
-    });
+    const { cutOptions, packagingOptions, ...productData } = data;
+    try {
+      return await this.prisma.product.create({
+        data: {
+          ...productData,
+          unitType: data.unitType as UnitType,
+          cutOptions: cutOptions?.length
+            ? { create: cutOptions.filter((o) => o.name).map((o) => ({ name: o.name, priceModifier: o.priceModifier || 0 })) }
+            : undefined,
+          packagingOptions: packagingOptions?.length
+            ? {
+                create: packagingOptions
+                  .filter((o) => o.name)
+                  .map((o) => ({ name: o.name, priceModifier: o.priceModifier || 0 })),
+              }
+            : undefined,
+        },
+        include: {
+          category: true,
+          animal: true,
+          cutOptions: true,
+          packagingOptions: true,
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('A product with this slug already exists');
+      }
+      throw err;
+    }
   }
 
-  async update(id: string, data: any) {
+  async update(
+    id: string,
+    data: any & {
+      cutOptions?: { name: string; priceModifier?: number }[];
+      packagingOptions?: { name: string; priceModifier?: number }[];
+    },
+  ) {
     await this.findOne(id);
-    return this.prisma.product.update({
-      where: { id },
-      data,
-      include: {
-        category: true,
-        animal: true,
-      },
+    const { cutOptions, packagingOptions, ...productData } = data;
+
+    return this.prisma.$transaction(async (tx) => {
+      if (cutOptions) {
+        await tx.cutOption.deleteMany({ where: { productId: id } });
+        if (cutOptions.length) {
+          await tx.cutOption.createMany({
+            data: cutOptions.filter((o) => o.name).map((o) => ({ productId: id, name: o.name, priceModifier: o.priceModifier || 0 })),
+          });
+        }
+      }
+      if (packagingOptions) {
+        await tx.packagingOption.deleteMany({ where: { productId: id } });
+        if (packagingOptions.length) {
+          await tx.packagingOption.createMany({
+            data: packagingOptions
+              .filter((o) => o.name)
+              .map((o) => ({ productId: id, name: o.name, priceModifier: o.priceModifier || 0 })),
+          });
+        }
+      }
+
+      return tx.product.update({
+        where: { id },
+        data: productData,
+        include: {
+          category: true,
+          animal: true,
+          cutOptions: true,
+          packagingOptions: true,
+        },
+      });
     });
   }
 

@@ -3,7 +3,7 @@ import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Role } from '@prisma/client';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -16,6 +16,8 @@ export class OrdersController {
   }
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.PREPARATEUR, Role.LIVREUR)
   findAll(
     @Query('customerId') customerId?: string,
     @Query('status') status?: OrderStatus,
@@ -29,17 +31,18 @@ export class OrdersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.ordersService.findOneForUser(id, req.user);
   }
 
   @Get('number/:orderNumber')
-  findByOrderNumber(@Param('orderNumber') orderNumber: string) {
-    return this.ordersService.findByOrderNumber(orderNumber);
+  findByOrderNumber(@Param('orderNumber') orderNumber: string, @Request() req: any) {
+    return this.ordersService.findByOrderNumberForUser(orderNumber, req.user);
   }
 
   @Patch(':id/status')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'PREPARATEUR', 'LIVREUR')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.PREPARATEUR, Role.LIVREUR)
   updateStatus(
     @Param('id') id: string,
     @Body('status') status: OrderStatus,
@@ -49,7 +52,8 @@ export class OrdersController {
   }
 
   @Patch(':id/weight')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'PREPARATEUR')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.PREPARATEUR)
   updateWeight(
     @Param('id') id: string,
     @Body('actualWeight') actualWeight: number,
@@ -64,6 +68,6 @@ export class OrdersController {
     @Body('reason') reason: string,
     @Request() req: any,
   ) {
-    return this.ordersService.cancelOrder(id, reason, req.user.id);
+    return this.ordersService.cancelOrder(id, reason, req.user);
   }
 }

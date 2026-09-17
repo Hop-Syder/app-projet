@@ -5,6 +5,16 @@ import { PrismaService } from '../prisma/prisma.service';
 export class RestaurantsService {
   constructor(private prisma: PrismaService) {}
 
+  private slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+      .concat(`-${Math.random().toString(36).slice(2, 6)}`);
+  }
+
   async findAll(filters?: {
     cuisineType?: string;
     priceRange?: string;
@@ -75,6 +85,7 @@ export class RestaurantsService {
   async create(data: {
     ownerId: string;
     name: string;
+    slug?: string;
     description?: string;
     address: string;
     phone?: string;
@@ -86,10 +97,14 @@ export class RestaurantsService {
     preparationTime?: number;
     isActive?: boolean;
   }) {
+    const { ownerId, slug, ...rest } = data;
+    const finalSlug = slug || this.slugify(data.name);
     return this.prisma.restaurant.create({
       data: {
-        ...data,
+        ...rest,
+        slug: finalSlug,
         isActive: data.isActive ?? true,
+        owner: { connect: { id: ownerId } },
       },
       include: {
         owner: {

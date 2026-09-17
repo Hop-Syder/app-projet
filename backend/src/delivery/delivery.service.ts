@@ -2,6 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeliveryStatus } from '@prisma/client';
 
+const SAFE_USER_SELECT = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  role: true,
+} as const;
+
 @Injectable()
 export class DeliveryService {
   constructor(private prisma: PrismaService) {}
@@ -27,7 +36,7 @@ export class DeliveryService {
           include: {
             customer: {
               include: {
-                user: true,
+                user: { select: SAFE_USER_SELECT },
               },
             },
             items: true,
@@ -48,7 +57,7 @@ export class DeliveryService {
           include: {
             customer: {
               include: {
-                user: true,
+                user: { select: SAFE_USER_SELECT },
               },
             },
             items: true,
@@ -74,7 +83,7 @@ export class DeliveryService {
           include: {
             customer: {
               include: {
-                user: true,
+                user: { select: SAFE_USER_SELECT },
               },
             },
             address: true,
@@ -184,7 +193,7 @@ export class DeliveryService {
           include: {
             customer: {
               include: {
-                user: true,
+                user: { select: SAFE_USER_SELECT },
               },
             },
             address: true,
@@ -207,7 +216,7 @@ export class DeliveryService {
           include: {
             customer: {
               include: {
-                user: true,
+                user: { select: SAFE_USER_SELECT },
               },
             },
             address: true,

@@ -20,7 +20,7 @@ export class RestaurantsController {
       cuisineType,
       priceRange,
       search,
-      isActive: isActive === 'true',
+      isActive: isActive === undefined ? undefined : isActive === 'true',
     });
   }
 
