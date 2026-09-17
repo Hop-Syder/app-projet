@@ -20,7 +20,7 @@ export class CategoriesService {
         name: dto.name,
         slug: dto.slug,
         description: dto.description,
-        parentCategoryId: dto.parentCategoryId,
+        parentId: dto.parentCategoryId,
         imageUrl: dto.imageUrl,
         icon: dto.icon,
         sortOrder: dto.sortOrder ?? 0,

@@ -28,24 +28,30 @@ export class OrdersService {
     for (const item of items) {
       const product = await this.prisma.product.findUnique({
         where: { id: item.productId },
-        include: { pricingRules: true, cutOptions: true },
+        include: { cutOptions: true },
       });
 
-      if (!product || !product.available) {
+      if (!product || !product.isAvailable) {
         throw new NotFoundException(`Le produit ${item.productId} n'est pas disponible.`);
       }
 
       // Vérification du stock
-      if (product.stockQuantity !== null && product.stockQuantity < (item.requestedWeight || item.quantity || 1)) {
+      const currentStock = await this.prisma.inventoryItem.aggregate({
+        where: { productId: item.productId, status: 'AVAILABLE' },
+        _sum: { quantity: true },
+      });
+      
+      const requestedQty = item.requestedWeight || item.quantity || 1;
+      if (currentStock._sum.quantity && currentStock._sum.quantity < requestedQty) {
         throw new BadRequestException(`Stock insuffisant pour le produit ${product.name}.`);
       }
 
       // Calcul du prix estimatif
       let itemPrice = 0;
       if (product.pricePerKg && item.requestedWeight) {
-        itemPrice = product.pricePerKg * item.requestedWeight;
+        itemPrice = Number(product.pricePerKg) * item.requestedWeight;
       } else if (product.price && item.quantity) {
-        itemPrice = product.price * item.quantity;
+        itemPrice = Number(product.price) * (item.quantity || 1);
       }
 
       // Ajout des options (assaisonnement, accompagnements, etc.)
