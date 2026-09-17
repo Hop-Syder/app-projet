@@ -1,0 +1,385 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  CUSTOMER
+  PREPARER
+  STOCK_MANAGER
+  ORDER_MANAGER
+  DELIVERY_DRIVER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum SaleMode {
+  WEIGHT
+  UNIT
+  LIVE_ANIMAL
+}
+
+enum OrderType {
+  MEAT_ONLY
+  MEAT_SEASONING
+  MEAT_SIDE
+  FULL_MEAL
+}
+
+enum ConsumptionMode {
+  ON_SITE
+  TAKEAWAY
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING
+  PAYMENT_CONFIRMED
+  PREPARING
+  CUTTING
+  PACKAGING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// ==================== MODELES PRINCIPAUX ====================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  phone         String?
+  role          Role      @default(CUSTOMER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  
+  customerProfile Customer?
+  orders        Order[] @relation("UserOrders")
+  
+  @@index([email])
+  @@index([role])
+}
+
+model Customer {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultAddressId String?
+  loyaltyPoints   Int      @default(0)
+  totalOrders     Int      @default(0)
+  totalSpent      Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  addresses       Address[]
+  orders          Order[]
+  reviews         Review[]
+  
+  @@index([userId])
+}
+
+model Address {
+  id              String       @id @default(uuid())
+  customerId      String
+  customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label           String?
+  street          String
+  city            String
+  district        String?
+  postalCode      String?
+  country         String       @default("Benin")
+  phone           String
+  latitude        Decimal?     @db.Decimal(10, 8)
+  longitude       Decimal?     @db.Decimal(11, 8)
+  deliveryZoneId  String?
+  deliveryZone    DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
+  isDefault       Boolean      @default(false)
+  deliveryInstructions String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  orders          Order[]
+  
+  @@index([customerId])
+  @@index([isDefault])
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  imageUrl    String?
+  icon        String?
+  parentId    String?
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  products    Product[]
+  
+  @@index([slug])
+  @@index([parentId])
+}
+
+model Animal {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  products    Product[]
+  
+  @@index([slug])
+}
+
+model Product {
+  id                String    @id @default(uuid())
+  name              String
+  slug              String    @unique
+  description       String?   @db.Text
+  categoryId        String
+  category          Category  @relation(fields: [categoryId], references: [id])
+  animalId          String?
+  animal            Animal?   @relation(fields: [animalId], references: [id])
+  saleMode          SaleMode  @default(WEIGHT)
+  pricePerKg        Decimal   @db.Decimal(10, 2)
+  pricePerUnit      Decimal?  @db.Decimal(10, 2)
+  minWeight         Decimal?  @default(0.1) @db.Decimal(5, 2)
+  maxWeight         Decimal?  @default(10) @db.Decimal(5, 2)
+  weightStep        Decimal?  @default(0.1) @db.Decimal(5, 2)
+  unitName          String?   // "piece", "colis", etc.
+  origin            String?
+  cutOptions        Json?     // Options de découpe
+  packagingOptions  Json?     // Options de conditionnement
+  storageTemp       Decimal?  @db.Decimal(4, 2)
+  storageDuration   Int?      // heures
+  isActive          Boolean   @default(true)
+  isAvailable       Boolean   @default(true)
+  isFeatured        Boolean   @default(false)
+  availableFrom     DateTime?
+  availableUntil    DateTime?
+  orderCount        Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  images            ProductImage[]
+  inventoryItems    InventoryItem[]
+  orderItems        OrderItem[]
+  
+  @@index([slug])
+  @@index([categoryId])
+  @@index([animalId])
+  @@index([isActive])
+  @@index([isAvailable])
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  altText   String?
+  position  Int      @default(0)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@index([productId])
+}
+
+model Order {
+  id                String   @id @default(uuid())
+  orderNumber       String   @unique
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id])
+  userId            String?
+  user              User?    @relation("UserOrders", fields: [userId], references: [id])
+  orderType         OrderType
+  consumptionMode   ConsumptionMode
+  status            OrderStatus @default(PENDING)
+  subtotal          Decimal  @db.Decimal(10, 2)
+  deliveryFee       Decimal  @default(0) @db.Decimal(10, 2)
+  totalAmount       Decimal  @db.Decimal(10, 2)
+  paymentMethod     PaymentMethod?
+  paymentStatus     PaymentStatus @default(PENDING)
+  requestedWeight   Decimal? @db.Decimal(6, 2)
+  actualWeight      Decimal? @db.Decimal(6, 2)
+  weightTolerance   Decimal? @default(0.1) @db.Decimal(4, 2)
+  notes             String?
+  deliveryAddressId String?
+  deliveryAddress   Address? @relation(fields: [deliveryAddressId], references: [id])
+  deliveryLatitude  Decimal? @db.Decimal(10, 8)
+  deliveryLongitude Decimal? @db.Decimal(11, 8)
+  deliveryInstructions String?
+  estimatedDeliveryAt DateTime?
+  actualDeliveryAt  DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  items           OrderItem[]
+  
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  quantity        Int      @default(1)
+  requestedWeight Decimal? @db.Decimal(6, 2)
+  actualWeight    Decimal? @db.Decimal(6, 2)
+  unitPrice       Decimal  @db.Decimal(10, 2)
+  totalPrice      Decimal  @db.Decimal(10, 2)
+  cutOption       String?
+  seasoning       String?
+  sides           String?
+  drinks          String?
+  extras          String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  customerId String
+  customer  Customer @relation(fields: [customerId], references: [id])
+  rating    Int      @default(5)
+  comment   String?
+  isVisible Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@index([customerId])
+}
+
+// ==================== MODELES RESTAURANT & LIVRAISON ====================
+
+model Restaurant {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  address     String
+  latitude    Decimal? @db.Decimal(10, 8)
+  longitude   Decimal? @db.Decimal(11, 8)
+  phone       String?
+  email       String?
+  isActive    Boolean  @default(true)
+  openingHours Json?   // Horaires d'ouverture
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  tables      RestaurantTable[]
+  
+  @@index([slug])
+  @@index([isActive])
+}
+
+model RestaurantTable {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableNumber  String
+  qrCode       String?    @unique
+  capacity     Int?
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  @@index([restaurantId])
+  @@index([qrCode])
+}
+
+model DeliveryZone {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  fee         Decimal  @default(0) @db.Decimal(10, 2)
+  minOrder    Decimal? @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  polygon     Json?    // Coordonnées géographiques de la zone
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  addresses   Address[]
+  
+  @@index([isActive])
+}
+
+model InventoryItem {
+  id          String    @id @default(uuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  lotNumber   String
+  quantity    Decimal   @db.Decimal(10, 3)
+  unit        String    @default("kg")
+  receivedAt  DateTime  @default(now())
+  expiresAt   DateTime?
+  isAvailable Boolean   @default(true)
+  location    String?   // Emplacement dans l'entrepôt
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([productId])
+  @@index([lotNumber])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+}
+
