@@ -1,155 +1,94 @@
-import React from 'react';
-import { useProducts } from '../hooks/useProduct';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { productsService } from '../services/products.service';
+import { categoriesService } from '../services/categories.service';
+import { formatPrice } from '../lib/format';
+import { EmptyState, PageLoader, Select } from '../components/ui';
+import type { Category, Product } from '../types';
 
+export function ProductsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [products, setProducts] = useState<Product[] | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [search, setSearch] = useState(searchParams.get('search') || '');
 
-export const ProductsPage: React.FC = () => {
-  const { data: products, isLoading, error } = useProducts();
+  const categoryId = searchParams.get('categoryId') || '';
 
-  if (isLoading) return <div style={styles.loading}>Chargement...</div>;
-  if (error) return <div style={styles.error}>Erreur lors du chargement des produits</div>;
+  useEffect(() => {
+    categoriesService.findAll().then(setCategories).catch(() => setCategories([]));
+  }, []);
+
+  useEffect(() => {
+    setProducts(null);
+    productsService
+      .findAll({ categoryId: categoryId || undefined, search: search || undefined, isAvailable: true })
+      .then(setProducts)
+      .catch(() => setProducts([]));
+  }, [categoryId, search]);
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Nos Produits</h1>
-      {products && products.length === 0 ? (
-        <p style={styles.empty}>Aucun produit disponible pour le moment.</p>
-      ) : (
-        <div style={styles.grid}>
-          {products?.map((product) => (
-            <div key={product.id} style={styles.card}>
-              {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} style={styles.image} />
-              ) : (
-                <div style={styles.placeholder}>🍕</div>
-              )}
-              <div style={styles.cardContent}>
-                <h3 style={styles.name}>{product.name}</h3>
-                {product.description && (
-                  <p style={styles.description}>{product.description}</p>
-                )}
-                <div style={styles.priceRow}>
-                  <span style={styles.price}>{product.price.toFixed(2)} €</span>
-                  {product.originalPrice && product.originalPrice > product.price && (
-                    <span style={styles.originalPrice}>
-                      {product.originalPrice.toFixed(2)} €
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <h1 className="text-2xl font-bold text-text">Catalogue</h1>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher un produit…"
+          className="w-full rounded-xl border border-gray-200 bg-surface px-3.5 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:max-w-xs"
+        />
+        <Select
+          value={categoryId}
+          onChange={(e) => {
+            const params = new URLSearchParams(searchParams);
+            if (e.target.value) params.set('categoryId', e.target.value);
+            else params.delete('categoryId');
+            setSearchParams(params);
+          }}
+          className="sm:max-w-xs"
+        >
+          <option value="">Toutes les catégories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      <div className="mt-6">
+        {products === null ? (
+          <PageLoader />
+        ) : products.length === 0 ? (
+          <EmptyState title="Aucun produit trouvé" description="Essayez une autre recherche ou catégorie." />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+            {products.map((product) => (
+              <Link
+                key={product.id}
+                to={`/produits/${product.slug}`}
+                className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface transition-shadow hover:shadow-md"
+              >
+                <div className="flex h-32 items-center justify-center bg-primary-soft text-4xl">🥩</div>
+                <div className="flex flex-1 flex-col gap-1 p-3">
+                  <p className="text-sm font-semibold text-text">{product.name}</p>
+                  <p className="text-xs text-muted">{product.category?.name}</p>
+                  {!product.isAvailable && (
+                    <span className="mt-1 w-fit rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">
+                      Indisponible
                     </span>
                   )}
+                  <p className="mt-1 text-sm font-bold text-primary">
+                    {formatPrice(product.price)}
+                    {product.unitType === 'KG' && <span className="text-xs font-normal text-muted"> /kg</span>}
+                  </p>
                 </div>
-                {!product.isAvailable && (
-                  <span style={styles.unavailable}>Indisponible</span>
-                )}
-                {product.isFeatured && (
-                  <span style={styles.featured}>⭐ En vedette</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
-};
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '2rem 1rem',
-  },
-  title: {
-    fontSize: '2rem',
-    color: '#333',
-    marginBottom: '2rem',
-    textAlign: 'center',
-  },
-  loading: {
-    textAlign: 'center',
-    padding: '4rem',
-    fontSize: '1.2rem',
-    color: '#666',
-  },
-  error: {
-    textAlign: 'center',
-    padding: '4rem',
-    fontSize: '1.2rem',
-    color: '#ff6b35',
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '4rem',
-    fontSize: '1.2rem',
-    color: '#666',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: '2rem',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  image: {
-    width: '100%',
-    height: '200px',
-    objectFit: 'cover',
-  },
-  placeholder: {
-    width: '100%',
-    height: '200px',
-    backgroundColor: '#f5f5f5',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '4rem',
-  },
-  cardContent: {
-    padding: '1rem',
-  },
-  name: {
-    fontSize: '1.25rem',
-    color: '#333',
-    marginBottom: '0.5rem',
-  },
-  description: {
-    color: '#666',
-    fontSize: '0.9rem',
-    marginBottom: '0.5rem',
-    lineHeight: '1.4',
-  },
-  priceRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    marginBottom: '0.5rem',
-  },
-  price: {
-    fontSize: '1.25rem',
-    fontWeight: 'bold',
-    color: '#ff6b35',
-  },
-  originalPrice: {
-    fontSize: '1rem',
-    color: '#999',
-    textDecoration: 'line-through',
-  },
-  unavailable: {
-    backgroundColor: '#999',
-    color: 'white',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.8rem',
-    display: 'inline-block',
-  },
-  featured: {
-    backgroundColor: '#ffb400',
-    color: 'white',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.8rem',
-    display: 'inline-block',
-    marginLeft: '0.5rem',
-  },
-};
+}

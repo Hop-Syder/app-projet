@@ -1,117 +1,60 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useLogin } from '../hooks/useAuth';
+import { useState, type FormEvent } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Button, Card, ErrorState, Input, Label } from '../components/ui';
 
-export const LoginPage: React.FC = () => {
+export function LoginPage() {
+  const { login, loading, error } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const loginMutation = useLogin();
-  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     try {
-      await loginMutation.mutateAsync({ email, password });
-      navigate('/');
-    } catch (error) {
-      console.error('Login failed:', error);
-      alert('Échec de la connexion. Vérifiez vos identifiants.');
+      const user = await login({ email, password });
+      const staffRoles = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'PREPARATEUR', 'LIVREUR'];
+      if (staffRoles.includes(user.role) && from === '/') {
+        navigate('/admin');
+      } else {
+        navigate(from, { replace: true });
+      }
+    } catch {
+      // error already surfaced via context
     }
-  };
+  }
 
   return (
-    <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <h1 style={styles.title}>Connexion</h1>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={styles.input}
-            required
-          />
-        </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Mot de passe</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={styles.input}
-            required
-          />
-        </div>
-        <button type="submit" style={styles.button} disabled={loginMutation.isPending}>
-          {loginMutation.isPending ? 'Connexion...' : 'Se connecter'}
-        </button>
-        <p style={styles.text}>
-          Pas encore de compte ? <Link to="/register" style={styles.link}>S'inscrire</Link>
-        </p>
-      </form>
+    <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
+      <h1 className="text-2xl font-bold text-text">Connexion</h1>
+      <p className="mt-1 text-sm text-muted">Accédez à votre compte Bêtes &amp; Frais.</p>
+
+      <Card className="mt-6 p-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {error && <ErrorState message={error} />}
+          <div>
+            <Label htmlFor="email">Adresse e-mail</Label>
+            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@exemple.com" />
+          </div>
+          <div>
+            <Label htmlFor="password">Mot de passe</Label>
+            <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+          </div>
+          <Button type="submit" disabled={loading} className="mt-2 w-full">
+            {loading ? 'Connexion…' : 'Se connecter'}
+          </Button>
+        </form>
+      </Card>
+
+      <p className="mt-6 text-center text-sm text-muted">
+        Pas encore de compte ?{' '}
+        <Link to="/inscription" className="font-semibold text-primary">
+          Créer un compte
+        </Link>
+      </p>
     </div>
   );
-};
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '80vh',
-    padding: '2rem',
-  },
-  form: {
-    backgroundColor: 'white',
-    padding: '2rem',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    width: '100%',
-    maxWidth: '400px',
-  },
-  title: {
-    textAlign: 'center',
-    color: '#333',
-    marginBottom: '1.5rem',
-  },
-  inputGroup: {
-    marginBottom: '1rem',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '0.5rem',
-    color: '#555',
-    fontWeight: '500',
-  },
-  input: {
-    width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '1rem',
-    boxSizing: 'border-box',
-  },
-  button: {
-    width: '100%',
-    padding: '0.75rem',
-    backgroundColor: '#ff6b35',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '1rem',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    marginTop: '1rem',
-  },
-  text: {
-    textAlign: 'center',
-    marginTop: '1rem',
-    color: '#666',
-  },
-  link: {
-    color: '#ff6b35',
-    textDecoration: 'none',
-    fontWeight: 'bold',
-  },
-};
+}

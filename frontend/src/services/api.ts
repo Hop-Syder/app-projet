@@ -9,7 +9,6 @@ export const api = axios.create({
   },
 });
 
-// Interceptor pour ajouter le token JWT
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -18,17 +17,19 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
-// Interceptor pour gérer les erreurs
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      localStorage.removeItem('user');
+      if (!window.location.pathname.startsWith('/connexion')) {
+        window.location.href = '/connexion';
+      }
     }
     return Promise.reject(error);
-  }
+  },
 );
