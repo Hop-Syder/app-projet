@@ -49,32 +49,89 @@ Solution numérique professionnelle pour la commercialisation en ligne de produi
 └── docker-compose.yml   # PostgreSQL pour le développement local
 ```
 
-## 🚀 Démarrage rapide
+## 🚀 Déploiement local
+
+Cette section suffit à elle seule pour faire tourner toute la stack (base de données + API + frontend) sur votre machine, du clonage jusqu'à un compte admin fonctionnel.
 
 ### Prérequis
-- Node.js 20+
-- PostgreSQL 14+ (ou Docker)
-- npm
 
-### 1. Base de données
+| Outil | Version | Vérifier |
+|-------|---------|----------|
+| Node.js | 20 ou plus | `node -v` |
+| npm | fourni avec Node | `npm -v` |
+| PostgreSQL | 14+ | via Docker (recommandé) ou une installation locale |
+| Docker + Docker Compose | pour l'option base de données conteneurisée | `docker -v` |
+
+Aucune autre dépendance (pas de Redis, pas de compte cloud) n'est nécessaire pour faire tourner le MVP en local.
+
+### Vue d'ensemble
+
+Trois processus tournent en parallèle, chacun dans son propre terminal :
+
+1. **PostgreSQL** — port `5432`
+2. **API backend (NestJS)** — port `3000`, exposée sous `http://localhost:3000/api`
+3. **Frontend (Vite/React)** — port `5173`, exposé sous `http://localhost:5173`
+
+### Étape 1 — Cloner et se placer sur la branche
+
+```bash
+git clone https://github.com/Hop-Syder/app-projet.git
+cd app-projet
+```
+
+### Étape 2 — Base de données PostgreSQL
+
+**Option A — Docker (recommandé, aucune configuration)**
 
 ```bash
 docker compose up -d postgres
-# ou utilisez un PostgreSQL local et adaptez DATABASE_URL
+docker compose ps   # doit afficher "healthy" après quelques secondes
 ```
 
-### 2. Backend
+Cela crée une base `betes_frais` accessible via `postgresql://postgres:postgres@localhost:5432/betes_frais`, avec les données persistées dans un volume Docker nommé (`postgres_data`) qui survit aux redémarrages du conteneur.
+
+**Option B — PostgreSQL installé localement**
+
+Créez manuellement la base et adaptez `DATABASE_URL` à l'étape suivante :
+
+```bash
+sudo -u postgres psql -c "CREATE DATABASE betes_frais;"
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"   # ou un mot de passe de votre choix
+```
+
+### Étape 3 — Backend (API NestJS)
 
 ```bash
 cd backend
 npm install
 cp .env.example .env
-npx prisma migrate dev
-npm run prisma:seed   # crée un compte admin, un client, des produits de démo
-npm run start:dev
 ```
 
-L'API est disponible sur `http://localhost:3000/api`.
+Variables du fichier `.env` (valeurs par défaut déjà correctes pour l'option Docker ci-dessus) :
+
+| Variable | Rôle | Défaut |
+|----------|------|--------|
+| `DATABASE_URL` | Connexion PostgreSQL | `postgresql://postgres:postgres@localhost:5432/betes_frais?schema=public` |
+| `JWT_SECRET` | Signature des tokens JWT | à changer en production |
+| `JWT_EXPIRES_IN` | Durée de validité du token | `7d` |
+| `PORT` | Port d'écoute de l'API | `3000` |
+| `CORS_ORIGIN` | Origine autorisée à appeler l'API | `http://localhost:5173` |
+
+Puis, toujours dans `backend/` :
+
+```bash
+npx prisma migrate dev      # crée les tables dans la base
+npm run prisma:seed         # crée un compte admin, un client et des produits de démo
+npm run start:dev           # démarre l'API en mode watch
+```
+
+Vous devez voir en fin de log `Bêtes & Frais API listening on http://localhost:3000/api`. Vérifiez rapidement :
+
+```bash
+curl http://localhost:3000/api/products
+```
+
+→ doit renvoyer un tableau JSON avec 4 produits de démonstration (bœuf, mouton, poulet, tilapia).
 
 Comptes créés par le seed :
 
@@ -83,16 +140,55 @@ Comptes créés par le seed :
 | Super admin | `admin@betesetfrais.bj` | `Admin123!` |
 | Client | `client@betesetfrais.bj` | `Client123!` |
 
-### 3. Frontend
+### Étape 4 — Frontend (ouvrir un second terminal)
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env.local   # optionnel, défaut = http://localhost:3000/api
+cp .env.example .env.local   # optionnel : défaut déjà = http://localhost:3000/api
 npm run dev
 ```
 
-L'application est disponible sur `http://localhost:5173`. Connectez-vous avec le compte admin ci-dessus puis ouvrez `/admin` pour accéder au back-office.
+Ouvrez `http://localhost:5173` dans votre navigateur.
+
+### Étape 5 — Vérifier que tout fonctionne
+
+1. La page d'accueil affiche le catalogue avec les 4 produits de démo.
+2. Connectez-vous sur `/connexion` avec `admin@betesetfrais.bj` / `Admin123!` → vous êtes redirigé vers `/admin` avec un tableau de bord.
+3. Déconnectez-vous, reconnectez-vous avec `client@betesetfrais.bj` / `Client123!`, ajoutez un produit au panier depuis une fiche produit, allez sur `/panier` puis `/checkout` pour passer une commande.
+4. Retournez sur `/admin/commandes` avec le compte admin : la commande passée à l'étape précédente doit apparaître.
+
+### Commandes utiles
+
+```bash
+# Backend
+npx prisma studio          # interface graphique pour explorer/éditer la base
+npx prisma migrate reset   # réinitialise la base et rejoue les migrations (⚠️ efface les données)
+npm run build               # build de production (nest build)
+npm run test                # tests unitaires
+
+# Frontend
+npm run build                # build de production (tsc -b && vite build)
+npm run preview              # sert le build de production en local
+```
+
+### Résolution de problèmes courants
+
+| Symptôme | Cause probable | Solution |
+|----------|-----------------|----------|
+| `Error: P1001` au démarrage du backend | PostgreSQL n'est pas accessible | Vérifiez `docker compose ps` ou que votre PostgreSQL local tourne bien sur le port 5432 |
+| Le catalogue reste vide | Le seed n'a pas été exécuté | `cd backend && npm run prisma:seed` |
+| Erreur CORS dans la console du navigateur | `CORS_ORIGIN` du backend ne correspond pas à l'URL du frontend | Vérifiez `backend/.env` (`CORS_ORIGIN=http://localhost:5173`) et redémarrez l'API |
+| `EADDRINUSE` sur le port 3000 ou 5173 | Un processus précédent tourne encore | `lsof -i :3000` (ou `:5173`) puis `kill <PID>`, ou changez `PORT` / le port Vite |
+| 401/403 en boucle après connexion | Jeton expiré ou `JWT_SECRET` changé après coup | Déconnectez-vous (efface le `localStorage`) puis reconnectez-vous |
+
+### Arrêter la stack
+
+```bash
+# Ctrl+C dans les terminaux backend et frontend, puis :
+docker compose down          # arrête PostgreSQL (les données restent dans le volume)
+docker compose down -v       # arrête PostgreSQL et supprime aussi les données
+```
 
 ## 📊 Modèle de données
 
