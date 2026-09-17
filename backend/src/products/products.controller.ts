@@ -14,8 +14,8 @@ export class ProductsController {
     @Query('categoryId') categoryId?: string,
     @Query('animalId') animalId?: string,
     @Query('search') search?: string,
-    @Query('isAvailable') isAvailable?: boolean,
-    @Query('isFeatured') isFeatured?: boolean,
+    @Query('isAvailable') isAvailable?: string,
+    @Query('isFeatured') isFeatured?: string,
   ) {
     return this.productsService.findAll({
       categoryId,

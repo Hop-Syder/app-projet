@@ -247,16 +247,11 @@ export class OrdersService {
   async updateWeight(id: string, actualWeight: number, finalAmount: number) {
     const order = await this.findOne(id);
 
-    return this.prisma.order.update({
-      where: { id },
+    return this.prisma.orderItem.updateMany({
+      where: { orderId: id },
       data: {
         actualWeight,
         finalAmount,
-        estimatedAmount: false,
-      },
-      include: {
-        items: true,
-        customer: true,
       },
     });
   }

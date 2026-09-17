@@ -7,6 +7,9 @@ dist/
 build/
 target/
 
+# Logs
+*.log
+
 # Environment variables
 .env
 .env.local
@@ -18,34 +21,25 @@ target/
 *.swp
 *.swo
 
-# Logs
-*.log
-
-# Python cache (if any Python files exist in project)
+# Python cache (if present)
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
 # Temporary files
 *.tmp
+*.temp
 
 # OS generated files
 .DS_Store
 Thumbs.db
 
-# Coverage reports
-coverage/
-htmlcov/
-*.coverage
-
-# TypeScript/JavaScript specific
-*.tsbuildinfo
-.next/
-.nuxt/
-
-# Prisma (since using Prisma in project)
-prisma/migrations/
-
-# Original rules preserved
+# Lock files (preserve package-lock.json as it's in your changes)
+!package-lock.json
 ```

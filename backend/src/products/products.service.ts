@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UnitType } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
@@ -113,7 +114,7 @@ export class ProductsService {
     animalId?: string;
     price: number;
     pricePerKg?: number;
-    unitType: string;
+    unitType: UnitType;
     minWeight?: number;
     maxWeight?: number;
     weightIncrement?: number;
@@ -127,7 +128,10 @@ export class ProductsService {
     position?: number;
   }) {
     return this.prisma.product.create({
-      data,
+      data: {
+        ...data,
+        unitType: data.unitType as UnitType,
+      },
       include: {
         category: true,
         animal: true,
