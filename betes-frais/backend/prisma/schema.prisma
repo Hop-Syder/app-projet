@@ -1,6 +1,3 @@
-// Schema Prisma pour Bêtes & Frais
-// Plateforme de commerce de produits animaux
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,26 +9,9 @@ datasource db {
 
 // ==================== UTILISATEURS & AUTHENTIFICATION ====================
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  firstName String?
-  lastName  String?
-  phone     String?
-  role      UserRole @default(CUSTOMER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  customerProfile Customer?
-  auditLogs       AuditLog[]
-
-  @@map("users")
-}
-
-enum UserRole {
+enum Role {
   CUSTOMER
-  PREPARATOR
+  PREPARER
   STOCK_MANAGER
   ORDER_MANAGER
   DELIVERY_DRIVER
@@ -39,308 +19,517 @@ enum UserRole {
   SUPER_ADMIN
 }
 
-// ==================== CLIENTS & ADRESSES ====================
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  phone         String?
+  role          Role      @default(CUSTOMER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  
+  // Relations
+  customerProfile Customer?
+  orders          Order[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  
+  @@index([email])
+  @@index([role])
+}
 
 model Customer {
-  id        String    @id @default(uuid())
-  userId    String    @unique
-  user      User      @relation(fields: [userId], references: [id])
-  addresses Address[]
-  orders    Order[]
-  reviews   Review[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@map("customers")
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultAddressId String?
+  loyaltyPoints   Int      @default(0)
+  totalOrders     Int      @default(0)
+  totalSpent      Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  addresses       Address[]
+  orders          Order[]
+  reviews         Review[]
+  favorites       Favorite[]
+  
+  @@index([userId])
 }
+
+// ==================== ADRESSES & LIVRAISON ====================
 
 model Address {
-  id           String   @id @default(uuid())
-  customerId   String
-  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  street       String
-  city         String
-  neighborhood String?
-  phone        String
-  instructions String?
-  latitude     Float?
-  longitude    Float?
-  isDefault    Boolean  @default(false)
-  deliveries   Delivery[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@map("addresses")
+  id            String   @id @default(uuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label         String?  // "Maison", "Bureau", etc.
+  street        String
+  city          String
+  district      String?  // Quartier
+  postalCode    String?
+  country       String   @default("Bénin")
+  phone         String
+  latitude      Decimal? @db.Decimal(10, 8)
+  longitude     Decimal? @db.Decimal(11, 8)
+  isDefault     Boolean  @default(false)
+  deliveryInstructions String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  orders        Order[]
+  deliveryZones DeliveryZoneAddress[]
+  
+  @@index([customerId])
+  @@index([city])
 }
 
-// ==================== PRODUITS & CATÉGORIES ====================
+model DeliveryZone {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  baseFee         Decimal  @db.Decimal(10, 2)
+  feePerKm        Decimal  @default(0) @db.Decimal(10, 2)
+  minOrderAmount  Decimal? @db.Decimal(10, 2)
+  maxDeliveryDistance Decimal? @db.Decimal(10, 2)
+  isActive        Boolean  @default(true)
+  estimatedTimeMin Int     @default(30)
+  estimatedTimeMax Int     @default(60)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  addresses       DeliveryZoneAddress[]
+  deliveries      Delivery[]
+  
+  @@index([name])
+}
+
+model DeliveryZoneAddress {
+  id              String       @id @default(uuid())
+  deliveryZoneId  String
+  deliveryZone    DeliveryZone @relation(fields: [deliveryZoneId], references: [id], onDelete: Cascade)
+  addressId       String
+  address         Address      @relation(fields: [addressId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+  
+  @@unique([deliveryZoneId, addressId])
+  @@index([deliveryZoneId])
+  @@index([addressId])
+}
+
+// ==================== PRODUITS & CATALOGUE ====================
+
+enum SaleMode {
+  FIXED_WEIGHT
+  PER_KG
+  VARIABLE_WEIGHT
+  LIVE_ANIMAL
+  PIECE
+}
+
+enum ConservationType {
+  FRESH
+  FROZEN
+  CHILLED
+  AMBIENT
+}
 
 model Category {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
-  slug        String    @unique
+  slug        String   @unique
   description String?
-  icon        String?
   parentId    String?
-  parent      Category? @relation("CategoryTree", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryTree")
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  imageUrl    String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
   products    Product[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  
+  @@index([slug])
+  @@index([parentId])
+}
 
-  @@map("categories")
+enum AnimalType {
+  BOEUF
+  MOUTON
+  CHEVRE
+  PORC
+  LAPIN
+  VOLAILLE
+  POISSON
+  AUTRE
 }
 
 model Animal {
-  id        String    @id @default(uuid())
-  name      String
-  species   String
-  products  Product[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@map("animals")
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  type        AnimalType
+  description String?
+  imageUrl    String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  products    Product[]
+  
+  @@index([slug])
+  @@index([type])
 }
 
 model Product {
-  id              String        @id @default(uuid())
-  slug            String        @unique
-  name            String
-  description     String?
-  categoryId      String
-  category        Category      @relation(fields: [categoryId], references: [id])
-  animalId        String?
-  animal          Animal?       @relation(fields: [animalId], references: [id])
-  origin          String?
-  saleMode        SaleMode      @default(FIXED)
-  basePrice       Float
-  pricePerKg      Float?
-  stock           Int           @default(0)
-  availability    Availability  @default(AVAILABLE)
-  images          ProductImage[]
-  weightOptions   WeightOption[]
-  cutOptions      CutOption[]
-  packaging       Packaging[]
-  storageRules    StorageRule?
-  seasonings      ProductSeasoning[]
-  sides           ProductSide[]
-  orderItems      OrderItem[]
-  restaurantId    String?
-  restaurant      Restaurant?   @relation(fields: [restaurantId], references: [id])
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  @@map("products")
-}
-
-enum SaleMode {
-  FIXED
-  PER_KG
-  VARIABLE_WEIGHT
-  LIVE
-}
-
-enum Availability {
-  AVAILABLE
-  UNAVAILABLE
-  SEASONAL
-}
-
-model ProductImage {
-  id        String  @id @default(uuid())
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url       String
-  alt       String?
-  isPrimary Boolean @default(false)
-  position  Int     @default(0)
-  createdAt DateTime @default(now())
-
-  @@map("product_images")
-}
-
-model WeightOption {
-  id        String  @id @default(uuid())
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  value     Int     // en grammes
-  label     String
-  available Boolean @default(true)
-  position  Int     @default(0)
-  createdAt DateTime @default(now())
-
-  @@map("weight_options")
+  id                String         @id @default(uuid())
+  name              String
+  slug              String         @unique
+  description       String?
+  shortDescription  String?
+  categoryId        String
+  category          Category       @relation(fields: [categoryId], references: [id])
+  animalId          String?
+  animal            Animal?        @relation(fields: [animalId], references: [id])
+  
+  // Prix et vente
+  saleMode          SaleMode       @default(FIXED_WEIGHT)
+  price             Decimal        @db.Decimal(10, 2)
+  pricePerKg        Decimal?       @db.Decimal(10, 2)
+  currency          String         @default("XOF")
+  
+  // Poids
+  minWeight         Decimal?       @db.Decimal(8, 3) // en kg
+  maxWeight         Decimal?       @db.Decimal(8, 3)
+  weightStep        Decimal?       @default(0.1) @db.Decimal(8, 3)
+  defaultWeight     Decimal?       @db.Decimal(8, 3)
+  weightTolerance   Decimal?       @default(0.1) @db.Decimal(8, 3) // tolérance pour poids variable
+  
+  // Options
+  cutOptions        CutOption[]
+  packagingOptions  PackagingOption[]
+  
+  // Conservation
+  conservationType  ConservationType @default(FRESH)
+  storageTempMin    Decimal?       @db.Decimal(5, 2)
+  storageTempMax    Decimal?       @db.Decimal(5, 2)
+  shelfLifeDays     Int?
+  
+  // Origine
+  origin            String?
+  producer          String?
+  
+  // Médias
+  images            ProductImage[]
+  videos            ProductVideo[]
+  
+  // Stock
+  stock             InventoryItem[]
+  
+  // Disponibilité
+  isAvailable       Boolean        @default(true)
+  availableFrom     DateTime?
+  availableUntil    DateTime?
+  
+  // SEO
+  metaTitle         String?
+  metaDescription   String?
+  
+  // Stats
+  viewCount         Int            @default(0)
+  orderCount        Int            @default(0)
+  
+  isActive          Boolean        @default(true)
+  isFeatured        Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  // Relations
+  orderItems        OrderItem[]
+  favorites         Favorite[]
+  reviews           Review[]
+  promotions        PromotionProduct[]
+  
+  @@index([slug])
+  @@index([categoryId])
+  @@index([animalId])
+  @@index([isAvailable])
+  @@index([saleMode])
 }
 
 model CutOption {
-  id            String  @id @default(uuid())
-  productId     String
-  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name          String
-  description   String?
-  additionalPrice Float   @default(0)
-  position      Int     @default(0)
-  createdAt     DateTime @default(now())
-
-  @@map("cut_options")
-}
-
-model Packaging {
-  id        String  @id @default(uuid())
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name      String
-  description String?
-  createdAt DateTime @default(now())
-
-  @@map("packaging")
-}
-
-model StorageRule {
-  id           String   @id @default(uuid())
-  productId    String   @unique
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  temperature  Float    // en °C
-  duration     Int      // en jours
-  instructions String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@map("storage_rules")
-}
-
-// ==================== ASSAISONNEMENTS & ACCOMPAGNEMENTS ====================
-
-model Seasoning {
-  id          String             @id @default(uuid())
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   name        String
   description String?
-  price       Float              @default(0)
-  available   Boolean            @default(true)
-  products    ProductSeasoning[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-
-  @@map("seasonings")
+  priceModifier Decimal  @default(0) @db.Decimal(10, 2)
+  isDefault   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  @@index([productId])
 }
 
-model ProductSeasoning {
-  id          String    @id @default(uuid())
+model PackagingOption {
+  id          String   @id @default(uuid())
   productId   String
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  seasoningId String
-  seasoning   Seasoning @relation(fields: [seasoningId], references: [id])
-  isDefault   Boolean   @default(false)
-  position    Int       @default(0)
-  createdAt   DateTime  @default(now())
-
-  @@unique([productId, seasoningId])
-  @@map("product_seasonings")
-}
-
-model Side {
-  id       String        @id @default(uuid())
-  name     String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String
   description String?
-  price    Float         @default(0)
-  available Boolean       @default(true)
-  products ProductSide[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-
-  @@map("sides")
+  priceModifier Decimal  @default(0) @db.Decimal(10, 2)
+  isDefault   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  @@index([productId])
 }
 
-model ProductSide {
-  id        String   @id @default(uuid())
-  productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sideId    String
-  side      Side     @relation(fields: [sideId], references: [id])
-  isDefault Boolean  @default(false)
-  position  Int      @default(0)
-  createdAt DateTime @default(now())
-
-  @@unique([productId, sideId])
-  @@map("product_sides")
+model ProductImage {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url         String
+  altText     String?
+  sortOrder   Int      @default(0)
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  @@index([productId])
 }
 
-// ==================== RESTAURANTS & TABLES ====================
+model ProductVideo {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url         String
+  thumbnailUrl String?
+  duration    Int?     // en secondes
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  @@index([productId])
+}
+
+// ==================== STOCK & LOTS ====================
+
+enum StockStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  EXPIRED
+  LOST
+  ADJUSTED
+}
+
+model InventoryItem {
+  id              String       @id @default(uuid())
+  productId       String
+  product         Product      @relation(fields: [productId], references: [id])
+  lotId           String?
+  lot             Lot?         @relation(fields: [lotId], references: [id])
+  
+  quantity        Decimal      @db.Decimal(10, 3)
+  unit            String       @default("kg")
+  status          StockStatus  @default(AVAILABLE)
+  
+  productionDate  DateTime?
+  expirationDate  DateTime?
+  bestBeforeDate  DateTime?
+  
+  location        String?      // Emplacement physique
+  batchNumber     String?
+  
+  notes           String?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  // Relations
+  orderItems      OrderItem[]
+  stockMovements  StockMovement[]
+  
+  @@index([productId])
+  @@index([lotId])
+  @@index([status])
+  @@index([expirationDate])
+}
+
+model Lot {
+  id              String   @id @default(uuid())
+  lotNumber       String   @unique
+  animalId        String?
+  animal          Animal?  @relation(fields: [animalId], references: [id])
+  
+  origin          String?
+  producer        String?
+  productionDate  DateTime
+  slaughterDate   DateTime?
+  processingDate  DateTime?
+  
+  veterinaryCert  String?
+  qualityCert     String?
+  
+  initialQuantity Decimal  @db.Decimal(10, 3)
+  currentQuantity Decimal  @db.Decimal(10, 3)
+  unit            String   @default("kg")
+  
+  status          String   @default("ACTIVE")
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  inventoryItems  InventoryItem[]
+  
+  @@index([lotNumber])
+  @@index([animalId])
+}
+
+model StockMovement {
+  id              String        @id @default(uuid())
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  
+  movementType    String        // IN, OUT, RESERVE, UNRESERVE, ADJUST, EXPIRE
+  quantity        Decimal       @db.Decimal(10, 3)
+  reason          String?
+  referenceType   String?       // ORDER, ADJUSTMENT, etc.
+  referenceId     String?
+  
+  performedBy     String
+  notes           String?
+  createdAt       DateTime      @default(now())
+  
+  @@index([inventoryItemId])
+  @@index([movementType])
+  @@index([createdAt])
+}
+
+// ==================== RESTAURANTS & MODE SUR PLACE ====================
 
 model Restaurant {
-  id           String        @id @default(uuid())
-  name         String
-  slug         String        @unique
-  address      String
-  latitude     Float
-  longitude    Float
-  phone        String?
-  description  String?
-  tables       Table[]
-  products     Product[]
-  openingHours OpeningHour[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  @@map("restaurants")
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  description     String?
+  address         String
+  city            String
+  district        String?
+  phone           String
+  email           String?
+  latitude        Decimal? @db.Decimal(10, 8)
+  longitude       Decimal? @db.Decimal(11, 8)
+  
+  openingHours    Json?    // { monday: {open: "08:00", close: "22:00"}, ... }
+  isActive        Boolean  @default(true)
+  
+  logoUrl         String?
+  coverImageUrl   String?
+  
+  rating          Decimal  @default(0) @db.Decimal(3, 2)
+  reviewCount     Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  tables          RestaurantTable[]
+  menus           RestaurantMenu[]
+  orders          Order[]
+  
+  @@index([slug])
+  @@index([city])
 }
 
-model Table {
-  id           String     @id @default(uuid())
-  restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  name         String
-  qrCode       String     @unique
-  orders       Order[]
-  createdAt    DateTime   @default(now())
-
-  @@map("tables")
+model RestaurantTable {
+  id              String     @id @default(uuid())
+  restaurantId    String
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableNumber     String
+  name            String?    // "Table 1", "Terrasse A", etc.
+  qrCode          String     @unique
+  capacity        Int?
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  // Relations
+  orders          Order[]
+  
+  @@unique([restaurantId, tableNumber])
+  @@index([restaurantId])
+  @@index([qrCode])
 }
 
-model OpeningHour {
-  id           String     @id @default(uuid())
-  restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  dayOfWeek    Int        // 0 = Dimanche, 6 = Samedi
-  openTime     String     // Format "HH:mm"
-  closeTime    String     // Format "HH:mm"
-  isOpen       Boolean    @default(true)
-  createdAt    DateTime   @default(now())
+model RestaurantMenu {
+  id              String     @id @default(uuid())
+  restaurantId    String
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  isActive        Boolean    @default(true)
+  validFrom       DateTime?
+  validUntil      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  // Relations
+  items           RestaurantMenuItem[]
+  
+  @@index([restaurantId])
+}
 
-  @@map("opening_hours")
+model RestaurantMenuItem {
+  id              String           @id @default(uuid())
+  menuId          String
+  menu            RestaurantMenu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product          @relation(fields: [productId], references: [id])
+  
+  price           Decimal          @db.Decimal(10, 2)
+  isAvailable     Boolean          @default(true)
+  
+  seasoningOptions Json?          // [{name: "Épicé", price: 500}, ...]
+  sideOptions      Json?          // [{name: "Riz", price: 1000}, ...]
+  
+  sortOrder       Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  @@index([menuId])
+  @@index([productId])
 }
 
 // ==================== COMMANDES ====================
 
-model Order {
-  id               String        @id @default(uuid())
-  orderNumber      String        @unique
-  customerId       String
-  customer         Customer      @relation(fields: [customerId], references: [id])
-  status           OrderStatus   @default(PENDING)
-  consumptionMode  ConsumptionMode
-  tableId          String?
-  table            Table?        @relation(fields: [tableId], references: [id])
-  items            OrderItem[]
-  delivery         Delivery?
-  payment          Payment?
-  subtotal         Float
-  deliveryFee      Float         @default(0)
-  discount         Float         @default(0)
-  total            Float
-  finalTotal       Float?        // Pour ajustement poids variable
-  notes            String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  confirmedAt      DateTime?
-  preparedAt       DateTime?
-  deliveredAt      DateTime?
+enum OrderType {
+  RETAIL
+  RESTAURANT
+  DELIVERY
+  TAKEAWAY
+}
 
-  @@map("orders")
+enum ConsumptionMode {
+  DINING_IN
+  TAKEAWAY
+  DELIVERY
 }
 
 enum OrderStatus {
   PENDING
+  PAYMENT_PENDING
   PAYMENT_CONFIRMED
   PREPARING
   CUTTING
@@ -348,64 +537,186 @@ enum OrderStatus {
   READY
   OUT_FOR_DELIVERY
   DELIVERED
+  COMPLETED
   CANCELLED
+  REFUNDED
 }
 
-enum ConsumptionMode {
-  DINE_IN
-  TAKEAWAY
-  DELIVERY
+enum PaymentStatus {
+  PENDING
+  INITIATED
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  MOBILE_MONEY
+  BANK_TRANSFER
+  WALLET
+}
+
+model Order {
+  id                String         @id @default(uuid())
+  orderNumber       String         @unique
+  customerId        String
+  customer          Customer       @relation(fields: [customerId], references: [id])
+  
+  orderType         OrderType      @default(RETAIL)
+  consumptionMode   ConsumptionMode
+  status            OrderStatus    @default(PENDING)
+  
+  // Adresse de livraison
+  deliveryAddressId String?
+  deliveryAddress   Address?       @relation(fields: [deliveryAddressId], references: [id])
+  
+  // Mode restaurant
+  restaurantId      String?
+  restaurant        Restaurant?    @relation(fields: [restaurantId], references: [id])
+  tableId           String?
+  table             RestaurantTable? @relation(fields: [tableId], references: [id])
+  
+  // Livraison
+  deliveryZoneId    String?
+  deliveryZone      DeliveryZone?  @relation(fields: [deliveryZoneId], references: [id])
+  deliveryFee       Decimal        @default(0) @db.Decimal(10, 2)
+  deliveryInstructions String?
+  scheduledDeliveryAt DateTime?
+  estimatedDeliveryAt DateTime?
+  actualDeliveryAt  DateTime?
+  
+  // Panier
+  items             OrderItem[]
+  subtotal          Decimal        @db.Decimal(10, 2)
+  discountAmount    Decimal        @default(0) @db.Decimal(10, 2)
+  taxAmount         Decimal        @default(0) @db.Decimal(10, 2)
+  totalAmount       Decimal        @db.Decimal(10, 2)
+  
+  // Poids réel (après préparation)
+  totalEstimatedWeight Decimal?    @db.Decimal(10, 3)
+  totalActualWeight    Decimal?    @db.Decimal(10, 3)
+  weightDifference     Decimal?    @db.Decimal(10, 3)
+  finalAmount          Decimal?    @db.Decimal(10, 2)
+  
+  // Paiement
+  paymentStatus       PaymentStatus @default(PENDING)
+  paymentMethod       PaymentMethod?
+  paymentId           String?
+  paidAt              DateTime?
+  
+  // Coupon
+  couponCode          String?
+  couponDiscount      Decimal?     @db.Decimal(10, 2)
+  
+  // Notes
+  customerNotes       String?
+  internalNotes       String?
+  
+  // Tracking
+  cancellationReason  String?
+  cancelledAt         DateTime?
+  cancelledBy         String?
+  
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  confirmedAt         DateTime?
+  
+  // Relations
+  payments            Payment[]
+  delivery            Delivery?
+  reviews             Review[]
+  
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([consumptionMode])
 }
 
 model OrderItem {
-  id              String   @id @default(uuid())
-  orderId         String
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id])
-  quantity        Int
-  weightRequested Int?     // en grammes
-  weightActual    Int?     // en grammes, après pesée réelle
-  cutOptionId     String?
-  cutOption       CutOption? @relation(fields: [cutOptionId], references: [id])
-  seasoningId     String?
-  seasoning       Seasoning? @relation(fields: [seasoningId], references: [id])
-  sideId          String?
-  side            Side?      @relation(fields: [sideId], references: [id])
-  unitPrice       Float
-  totalPrice      Float
-  finalPrice      Float?     // Pour ajustement poids variable
-  notes           String?
-  createdAt       DateTime @default(now())
+  id                String        @id @default(uuid())
+  orderId           String
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product       @relation(fields: [productId], references: [id])
+  inventoryItemId   String?
+  inventoryItem     InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  
+  // Personnalisation
+  cutOptionId       String?
+  cutOptionName     String?
+  packagingOptionId String?
+  packagingOptionName String?
+  
+  // Assaisonnement / Préparation
+  seasoning         Json?        // {name: "Épicé", options: [...]}
+  
+  // Accompagnements
+  sides             Json?        // [{name: "Riz", quantity: 2, price: 1000}, ...]
+  
+  // Poids
+  requestedWeight   Decimal?     @db.Decimal(10, 3)
+  estimatedWeight   Decimal      @db.Decimal(10, 3)
+  actualWeight      Decimal?     @db.Decimal(10, 3)
+  weightUnit        String       @default("kg")
+  
+  // Prix
+  pricePerUnit      Decimal      @db.Decimal(10, 2)
+  pricePerKg        Decimal?     @db.Decimal(10, 2)
+  quantity          Int          @default(1)
+  subtotal          Decimal      @db.Decimal(10, 2)
+  estimatedSubtotal Decimal      @db.Decimal(10, 2)
+  finalSubtotal     Decimal?     @db.Decimal(10, 2)
+  
+  // État
+  status            String       @default("PENDING")
+  notes             String?
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  @@index([orderId])
+  @@index([productId])
+}
 
-  @@map("order_items")
+// ==================== PAIEMENTS ====================
+
+model Payment {
+  id              String        @id @default(uuid())
+  orderId         String
+  order           Order         @relation(fields: [orderId], references: [id])
+  
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("XOF")
+  method          PaymentMethod
+  
+  status          PaymentStatus @default(PENDING)
+  transactionId   String?
+  provider        String?       // Stripe, PayPal, Mobile Money, etc.
+  providerData    Json?
+  
+  initiatedAt     DateTime      @default(now())
+  completedAt     DateTime?
+  failedAt        DateTime?
+  refundedAt      DateTime?
+  
+  refundAmount    Decimal?      @db.Decimal(10, 2)
+  refundReason    String?
+  
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([orderId])
+  @@index([transactionId])
+  @@index([status])
 }
 
 // ==================== LIVRAISONS ====================
-
-model Delivery {
-  id            String        @id @default(uuid())
-  orderId       String        @unique
-  order         Order         @relation(fields: [orderId], references: [id])
-  addressId     String
-  address       Address       @relation(fields: [addressId], references: [id])
-  zoneId        String
-  zone          DeliveryZone  @relation(fields: [zoneId], references: [id])
-  latitude      Float?
-  longitude     Float?
-  scheduledAt   DateTime
-  estimatedAt   DateTime?
-  actualArrival DateTime?
-  instructions  String?
-  fee           Float
-  status        DeliveryStatus @default(PENDING)
-  driverId      String?
-  driver        User?         @relation(fields: [driverId], references: [id])
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  @@map("deliveries")
-}
 
 enum DeliveryStatus {
   PENDING
@@ -414,110 +725,263 @@ enum DeliveryStatus {
   IN_TRANSIT
   DELIVERED
   FAILED
+  RETURNED
 }
 
-model DeliveryZone {
-  id         String     @id @default(uuid())
-  name       String
-  fee        Float
-  minOrder   Float      @default(0)
-  polygon    Json?      // Coordonnées GPS du polygone
-  deliveries Delivery[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  @@map("delivery_zones")
+model Delivery {
+  id              String        @id @default(uuid())
+  orderId         String        @unique
+  order           Order         @relation(fields: [orderId], references: [id])
+  
+  deliveryZoneId  String?
+  deliveryZone    DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
+  
+  driverId        String?
+  assignedAt      DateTime?
+  
+  status          DeliveryStatus @default(PENDING)
+  
+  pickedUpAt      DateTime?
+  deliveredAt     DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  
+  distance        Decimal?      @db.Decimal(10, 2)
+  estimatedDuration Int?        // minutes
+  
+  trackingData    Json?         // Positions GPS, historique
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([orderId])
+  @@index([driverId])
+  @@index([status])
 }
 
-// ==================== PAIEMENTS ====================
+// ==================== PROMOTIONS & COUPONS ====================
 
-model Payment {
-  id            String       @id @default(uuid())
-  orderId       String       @unique
-  order         Order        @relation(fields: [orderId], references: [id])
-  method        PaymentMethod
-  status        PaymentStatus @default(PENDING)
-  amount        Float
-  transactionId String?
-  metadata      Json?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  processedAt   DateTime?
-
-  @@map("payments")
+enum PromotionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
+  FREE_DELIVERY
 }
-
-enum PaymentMethod {
-  CARD
-  MOBILE_MONEY
-  CASH
-  APPLE_PAY
-}
-
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
-}
-
-// ==================== PROMOTIONS ====================
 
 model Promotion {
-  id                 String   @id @default(uuid())
-  code               String   @unique
-  description        String?
-  discountType       DiscountType
-  discountValue      Float
-  minOrder           Float    @default(0)
-  maxUses            Int?
-  usedCount          Int      @default(0)
-  validFrom          DateTime
-  validUntil         DateTime
-  applicableProducts String[] // IDs des produits
-  applicableCategories String[] // IDs des catégories
-  isActive           Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@map("promotions")
+  id              String         @id @default(uuid())
+  code            String         @unique
+  name            String
+  description     String?
+  type            PromotionType
+  value           Decimal        @db.Decimal(10, 2)
+  minOrderAmount  Decimal?       @db.Decimal(10, 2)
+  maxDiscount     Decimal?       @db.Decimal(10, 2)
+  
+  usageLimit      Int?
+  usageCount      Int            @default(0)
+  perUserLimit    Int?
+  
+  validFrom       DateTime
+  validUntil      DateTime
+  
+  isActive        Boolean        @default(true)
+  applicableCategories String[]
+  applicableProducts   String[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  products        PromotionProduct[]
+  
+  @@index([code])
+  @@index([isActive])
 }
 
-enum DiscountType {
-  PERCENTAGE
-  FIXED
+model PromotionProduct {
+  id              String     @id @default(uuid())
+  promotionId     String
+  promotion       Promotion  @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@unique([promotionId, productId])
+  @@index([promotionId])
+  @@index([productId])
 }
 
-// ==================== AVIS ====================
+model Coupon {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  promotionId     String?
+  promotion       Promotion? @relation(fields: [promotionId], references: [id])
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  
+  isUsed          Boolean  @default(false)
+  usedAt          DateTime?
+  usedByOrderId   String?
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([code])
+  @@index([customerId])
+}
+
+// ==================== AVIS & NOTATIONS ====================
 
 model Review {
-  id        String   @id @default(uuid())
-  customerId String
-  customer  Customer @relation(fields: [customerId], references: [id])
-  orderId   String
-  productId String
-  rating    Int
-  comment   String?
-  approved  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(uuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  
+  productId       String?
+  product         Product? @relation(fields: [productId], references: [id])
+  
+  restaurantId    String?
+  restaurant      Restaurant? @relation(fields: [restaurantId], references: [id])
+  
+  rating          Int      // 1-5
+  title           String?
+  comment         String?
+  
+  isApproved      Boolean  @default(false)
+  isVerified      Boolean  @default(true) // Achat vérifié
+  
+  adminResponse   String?
+  respondedAt     DateTime?
+  
+  helpfulCount    Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([orderId])
+  @@index([customerId])
+  @@index([productId])
+  @@index([rating])
+  @@index([isApproved])
+}
 
-  @@map("reviews")
+model Favorite {
+  id              String   @id @default(uuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  
+  @@unique([customerId, productId])
+  @@index([customerId])
+  @@index([productId])
+}
+
+// ==================== NOTIFICATIONS ====================
+
+enum NotificationType {
+  ORDER_CONFIRMED
+  ORDER_PREPARING
+  ORDER_READY
+  ORDER_OUT_FOR_DELIVERY
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  PAYMENT_CONFIRMED
+  PAYMENT_FAILED
+  PROMOTION
+  GENERAL
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+  WHATSAPP
+}
+
+model Notification {
+  id              String             @id @default(uuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type            NotificationType
+  title           String
+  message         String
+  data            Json?
+  
+  channels        NotificationChannel[]
+  
+  isRead          Boolean            @default(false)
+  readAt          DateTime?
+  
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  
+  createdAt       DateTime           @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
 }
 
 // ==================== AUDIT & LOGS ====================
 
-model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  action    String
-  entity    String
-  entityId  String?
-  changes   Json?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PASSWORD_CHANGE
+  PERMISSION_CHANGE
+  ORDER_STATUS_CHANGE
+  PAYMENT_PROCESS
+  STOCK_ADJUSTMENT
+  PRICE_CHANGE
+  EXPORT_DATA
+}
 
-  @@map("audit_logs")
+model AuditLog {
+  id              String       @id @default(uuid())
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id])
+  
+  action          AuditAction
+  entityType      String
+  entityId        String?
+  
+  oldValue        Json?
+  newValue        Json?
+  
+  ipAddress       String?
+  userAgent       String?
+  
+  metadata        Json?
+  
+  createdAt       DateTime     @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+// ==================== PARAMÈTRES & CONFIGURATION ====================
+
+model Setting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  description String?
+  category    String?
+  isPublic    Boolean  @default(false)
+  
+  updatedAt   DateTime @updatedAt
+  
+  @@index([key])
+  @@index([category])
 }

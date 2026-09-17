@@ -23,18 +23,53 @@ out/
 # Logs
 *.log
 
-# Temp files
+# Temporary files
 *.tmp
 
-# OS files
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.db
+*.sqlite
+*.sqlite3
 .DS_Store
 Thumbs.db
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
+# TypeScript/JavaScript
+*.tsbuildinfo
+*.js.map
+*.jsx.map
+*.ts.map
+*.tsx.map
 
 # Prisma
 prisma/migrations/
+prisma/schema.prisma.bak
+
+# Backend specific
+backend/dist/
+backend/build/
+backend/node_modules/
+
+# Frontend specific
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
 ```
