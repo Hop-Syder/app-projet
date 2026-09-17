@@ -497,12 +497,14 @@ export class OrdersService {
       this.prisma.order.count({ where: { ...where, status: OrderStatus.DELIVERED } }),
     ]);
 
+    const sumRevenue = Number(totalRevenue._sum.totalAmount) || 0;
+
     return {
       totalOrders,
-      totalRevenue: totalRevenue._sum.totalAmount || 0,
+      totalRevenue: sumRevenue,
       pendingOrders,
       deliveredOrders,
-      averageOrderValue: totalOrders > 0 ? (totalRevenue._sum.totalAmount || 0) / totalOrders : 0,
+      averageOrderValue: totalOrders > 0 ? sumRevenue / totalOrders : 0,
     };
   }
 }

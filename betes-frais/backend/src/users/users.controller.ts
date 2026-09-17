@@ -17,8 +17,8 @@ export class UsersController {
   @ApiQuery({ name: 'role', required: false, example: 'CUSTOMER' })
   @ApiQuery({ name: 'search', required: false, example: 'jean' })
   async findAll(
-    @Query('page') page = 1,
-    @Query('limit') limit = 10,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
     @Query('role') role?: string,
     @Query('search') search?: string,
   ) {

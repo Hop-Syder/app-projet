@@ -2,18 +2,18 @@
 # Dependencies
 node_modules/
 
-# Build artifacts
+# Build outputs
 dist/
 build/
 target/
 
+# Logs
+*.log
+
 # Environment variables
 .env
 .env.local
-.env.*
-
-# Logs
-*.log
+*.env.*
 
 # IDE files
 .vscode/
@@ -31,8 +31,6 @@ __pycache__/
 env/
 venv/
 .venv/
-.ENV
-.python-version
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
@@ -42,14 +40,8 @@ pip-delete-this-directory.txt
 nosetests.xml
 coverage.xml
 *.cover
-*.db
-*.db-journal
-.hypothesis/
-.pytest_cache/
-.mypy_cache/
-.pyre/
-.pytype/
-cython_debug/
+*.log
+.gitattributes
 
 # Node.js
 npm-debug.log*
@@ -57,19 +49,26 @@ yarn-debug.log*
 yarn-error.log*
 node_modules/
 dist/
-dist-*
-bower_components/
-.jspm/
-.npm
-.npx
-.nyc_output
-coverage
-*.lcov
-.nyc_output/
-.nyc/
-.coveralls.yml
-.tap/
+build/
+*.min.js
+*.min.css
 
-# Prisma
-prisma/migrations/
+# TypeScript/JavaScript
+*.tsbuildinfo
+.next/
+nuxt/dist/
+
+# Database
+*.db
+*.db-journal
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Icon?
 ```

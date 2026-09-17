@@ -63,9 +63,6 @@ export class UsersService {
               take: 5,
               orderBy: { createdAt: 'desc' },
             },
-            favorites: {
-              include: { product: true },
-            },
           },
         },
       },

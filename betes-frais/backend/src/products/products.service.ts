@@ -4,7 +4,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService, SaleMode } from '../prisma/prisma.service';
 import { CreateProductDto, UpdateProductDto, ProductQueryDto } from './dtos/product.dto';
 import { generateSlug } from '../../utils/slug.util';
 
@@ -15,6 +15,11 @@ export class ProductsService {
   async create(createProductDto: CreateProductDto, userId: string) {
     const { cutOptions, imageUrls, ...productData } = createProductDto;
 
+    // Générer le slug si non fourni
+    if (!productData.slug) {
+      productData.slug = generateSlug(productData.name);
+    }
+
     // Vérifier que le slug est unique
     const existingProduct = await this.prisma.product.findUnique({
       where: { slug: productData.slug },
@@ -24,20 +29,11 @@ export class ProductsService {
       throw new ConflictException('Un produit avec ce slug existe déjà');
     }
 
-    // Créer le produit avec ses options de découpe
+    // Créer le produit avec ses images
     const product = await this.prisma.product.create({
       data: {
         ...productData,
-        createdBy: userId,
-        cutOptions: cutOptions
-          ? {
-              create: cutOptions.map((option) => ({
-                name: option.name,
-                description: option.description,
-                additionalPrice: option.additionalPrice || 0,
-              })),
-            }
-          : undefined,
+        cutOptions: cutOptions ? JSON.stringify(cutOptions) : null,
         images: imageUrls
           ? {
               create: imageUrls.map((url, index) => ({
@@ -51,12 +47,7 @@ export class ProductsService {
       include: {
         category: true,
         animal: true,
-        cutOptions: true,
         images: true,
-        lots: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
       },
     });
 
@@ -96,18 +87,20 @@ export class ProductsService {
     }
 
     if (saleMode) {
-      where.saleMode = saleMode;
+      where.saleMode = saleMode as any;
     }
 
     if (minPrice !== undefined || maxPrice !== undefined) {
-      where.price = {};
-      if (minPrice !== undefined) where.price.gte = minPrice;
-      if (maxPrice !== undefined) where.price.lte = maxPrice;
+      where.pricePerKg = {};
+      if (minPrice !== undefined) where.pricePerKg.gte = minPrice;
+      if (maxPrice !== undefined) where.pricePerKg.lte = maxPrice;
     }
 
     if (isAvailable !== undefined) {
       where.isAvailable = isAvailable;
     }
+
+    where.isActive = true;
 
     const skip = (page - 1) * limit;
 
@@ -117,14 +110,8 @@ export class ProductsService {
         include: {
           category: true,
           animal: true,
-          cutOptions: true,
           images: {
             where: { isPrimary: true },
-            take: 1,
-          },
-          lots: {
-            where: { quantityAvailable: { gt: 0 } },
-            orderBy: { createdAt: 'desc' },
             take: 1,
           },
         },
@@ -152,18 +139,8 @@ export class ProductsService {
       include: {
         category: true,
         animal: true,
-        cutOptions: true,
         images: {
           orderBy: { position: 'asc' },
-        },
-        lots: {
-          where: { quantityAvailable: { gt: 0 } },
-          orderBy: { createdAt: 'desc' },
-        },
-        reviews: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-          include: { customer: { select: { firstName: true, lastName: true } } },
         },
       },
     });
@@ -181,18 +158,8 @@ export class ProductsService {
       include: {
         category: true,
         animal: true,
-        cutOptions: true,
         images: {
           orderBy: { position: 'asc' },
-        },
-        lots: {
-          where: { quantityAvailable: { gt: 0 } },
-          orderBy: { createdAt: 'desc' },
-        },
-        reviews: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-          include: { customer: { select: { firstName: true, lastName: true } } },
         },
       },
     });
@@ -200,12 +167,6 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException(`Produit avec le slug ${slug} non trouvé`);
     }
-
-    // Incrémenter le compteur de vues
-    await this.prisma.product.update({
-      where: { id: product.id },
-      data: { viewCount: { increment: 1 } },
-    });
 
     return product;
   }
@@ -234,41 +195,30 @@ export class ProductsService {
     }
 
     // Mettre à jour le produit
+    const updateData: any = { ...productData };
+    
+    if (cutOptions !== undefined) {
+      updateData.cutOptions = cutOptions ? JSON.stringify(cutOptions) : null;
+    }
+    
+    if (imageUrls) {
+      updateData.images = {
+        deleteMany: {},
+        create: imageUrls.map((url, index) => ({
+          url,
+          position: index,
+          isPrimary: index === 0,
+        })),
+      };
+    }
+
     const updatedProduct = await this.prisma.product.update({
       where: { id },
-      data: {
-        ...productData,
-        updatedBy: userId,
-        cutOptions: cutOptions
-          ? {
-              deleteMany: {},
-              create: cutOptions.map((option) => ({
-                name: option.name,
-                description: option.description,
-                additionalPrice: option.additionalPrice || 0,
-              })),
-            }
-          : undefined,
-        images: imageUrls
-          ? {
-              deleteMany: {},
-              create: imageUrls.map((url, index) => ({
-                url,
-                position: index,
-                isPrimary: index === 0,
-              })),
-            }
-          : undefined,
-      },
+      data: updateData,
       include: {
         category: true,
         animal: true,
-        cutOptions: true,
         images: true,
-        lots: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
       },
     });
 
@@ -301,9 +251,9 @@ export class ProductsService {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
       include: {
-        lots: {
-          where: { quantityAvailable: { gt: 0 } },
-          orderBy: { expirationDate: 'asc' },
+        inventoryItems: {
+          where: { isAvailable: true },
+          orderBy: { expiresAt: 'asc' },
         },
       },
     });
@@ -317,29 +267,18 @@ export class ProductsService {
     }
 
     let totalAvailable = 0;
-    for (const lot of product.lots) {
-      totalAvailable += lot.quantityAvailable;
+    for (const item of product.inventoryItems) {
+      totalAvailable += Number(item.quantity);
     }
 
-    if (product.saleMode === 'unit') {
-      return {
-        available: totalAvailable >= requestedQuantity,
-        availableQuantity: totalAvailable,
-        message:
-          totalAvailable >= requestedQuantity
-            ? undefined
-            : `Seulement ${totalAvailable} unités disponibles`,
-      };
-    }
-
-    // Pour les produits au poids
+    // Pour les produits au poids ou à l'unité
     return {
       available: totalAvailable >= requestedQuantity,
       availableQuantity: totalAvailable,
       message:
         totalAvailable >= requestedQuantity
           ? undefined
-          : `Seulement ${totalAvailable} kg disponibles`,
+          : `Seulement ${totalAvailable} ${product.saleMode === 'UNIT' ? 'unités' : 'kg'} disponibles`,
     };
   }
 

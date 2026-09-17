@@ -56,8 +56,8 @@ export class ProductsController {
   @Public()
   @ApiOperation({ summary: 'Récupérer les produits en vedette' })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 8 })
-  async findFeatured(@Query('limit') limit = 8) {
-    return this.productsService.findFeatured(parseInt(limit as string, 10));
+  async findFeatured(@Query('limit') limit = '8') {
+    return this.productsService.findFeatured(parseInt(limit, 10));
   }
 
   @Get('category/:slug')
@@ -66,9 +66,9 @@ export class ProductsController {
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   async findByCategory(
     @Param('slug') slug: string,
-    @Query('limit') limit = 20,
+    @Query('limit') limit = '20',
   ) {
-    return this.productsService.findByCategory(slug, parseInt(limit as string, 10));
+    return this.productsService.findByCategory(slug, parseInt(limit, 10));
   }
 
   @Get(':id')
